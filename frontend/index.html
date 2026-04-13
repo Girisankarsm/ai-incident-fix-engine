@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Memory Copilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="hero">
+            <div class="hero-copy">
+                <p class="eyebrow">Hindsight-Powered Hackathon Demo</p>
+                <h1>Incident Memory Copilot</h1>
+                <p class="hero-text">A memory-first incident response agent that recalls similar outages, reuses proven fixes, and gets sharper with every issue your team resolves.</p>
+                <div class="hero-actions">
+                    <button type="button" id="demoBtn" class="secondary-btn">Load Demo Incident</button>
+                    <a href="/api/health" target="_blank" rel="noreferrer" class="ghost-link">API health</a>
+                </div>
+            </div>
+            <div class="hero-panel">
+                <div class="metric-card">
+                    <span class="metric-label">Memory Status</span>
+                    <strong id="heroMemoryStatus">Waiting for first incident</strong>
+                </div>
+                <div class="metric-grid">
+                    <div class="metric-tile">
+                        <span>Groq</span>
+                        <strong id="groqStatus">Checking</strong>
+                    </div>
+                    <div class="metric-tile">
+                        <span>Hindsight</span>
+                        <strong id="hindsightStatus">Checking</strong>
+                    </div>
+                    <div class="metric-tile">
+                        <span>Similarity</span>
+                        <strong id="similarityStatus">New</strong>
+                    </div>
+                    <div class="metric-tile">
+                        <span>Incidents</span>
+                        <strong id="incidentCount">0</strong>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard">
+            <section class="panel compose-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="section-kicker">Incident Intake</p>
+                        <h2>Paste an error log or stack trace</h2>
+                    </div>
+                    <span class="live-pill">Live Memory Recall</span>
+                </div>
+
+                <label for="errorLog">Current incident</label>
+                <textarea id="errorLog" rows="5" placeholder="Example: psycopg2.OperationalError: connection to server at &quot;db&quot;, port 5432 failed: FATAL: password authentication failed for user &quot;postgres&quot;"></textarea>
+
+                <div class="quick-examples">
+                    <button type="button" class="chip" data-demo="sqlite3.OperationalError: no such table: users">Missing table</button>
+                    <button type="button" class="chip" data-demo="psycopg2.OperationalError: connection to server at &quot;db&quot;, port 5432 failed: FATAL: password authentication failed for user &quot;postgres&quot;">Database auth</button>
+                    <button type="button" class="chip" data-demo="ModuleNotFoundError: No module named fastapi">Missing dependency</button>
+                </div>
+
+                <div class="action-row">
+                    <button type="button" id="analyzeBtn">Run Incident Analysis</button>
+                    <div id="progressPanel" class="progress-panel hidden" aria-live="polite">
+                        <div class="progress-copy">
+                            <span class="progress-kicker">Live Analysis</span>
+                            <strong id="progressTitle">Starting analysis</strong>
+                            <p id="loading">Checking Hindsight memory and building a response...</p>
+                        </div>
+                        <div class="progress-steps">
+                            <span id="stageRecall" class="progress-step">Recall</span>
+                            <span id="stageReason" class="progress-step">Reason</span>
+                            <span id="stageRespond" class="progress-step">Respond</span>
+                        </div>
+                    </div>
+                </div>
+
+                <section id="resultSection" class="result-section hidden">
+                    <div class="panel-header result-header">
+                        <div>
+                            <p class="section-kicker">Response</p>
+                            <h2>Incident recommendation</h2>
+                        </div>
+                        <div class="memory-badges">
+                            <span id="memoryBadge" class="badge"></span>
+                            <span id="confidenceBadge" class="badge hidden"></span>
+                            <span id="seenBadge" class="badge hidden"></span>
+                        </div>
+                    </div>
+
+                    <div class="result-grid">
+                        <div class="result-main">
+                            <div class="summary-strip">
+                                <div>
+                                    <span class="summary-label">Classification</span>
+                                    <strong id="classificationText">Waiting</strong>
+                                </div>
+                                <div>
+                                    <span class="summary-label">Memory Hits</span>
+                                    <strong id="memoryHitsText">0</strong>
+                                </div>
+                                <div>
+                                    <span class="summary-label">Resolution Mode</span>
+                                    <strong id="resolutionModeText">General</strong>
+                                </div>
+                            </div>
+
+                            <div class="solution-box">
+                                <h3>Suggested Fix</h3>
+                                <div id="suggestedFix"></div>
+                            </div>
+                        </div>
+
+                        <div class="result-side">
+                            <div id="pastReference" class="reference-card hidden">
+                                <h3>Matched Memory</h3>
+                                <p><strong>Past Error</strong></p>
+                                <p id="refError" class="reference-copy"></p>
+                                <p><strong>Past Fix</strong></p>
+                                <p id="refSolution" class="reference-copy"></p>
+                                <p class="reference-time">Saved on <span id="refTimestamp"></span></p>
+                            </div>
+
+                            <div class="reference-card">
+                                <h3>Operator Notes</h3>
+                                <p class="reference-copy">Best demo sequence: trigger a new incident first, then replay a similar failure so the panel shows memory retrieval, confidence, and prior resolution context.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <aside class="side-column">
+                <section class="panel workflow-panel">
+                    <div class="panel-header compact">
+                        <div>
+                            <p class="section-kicker">Incident Flow</p>
+                            <h2>Memory-driven workflow</h2>
+                        </div>
+                    </div>
+                    <div class="workflow-steps">
+                        <article class="workflow-step">
+                            <span class="step-number">01</span>
+                            <div>
+                                <h3>Intake</h3>
+                                <p>Paste a live stack trace, service failure, or deployment error from your on-call flow.</p>
+                            </div>
+                        </article>
+                        <article class="workflow-step">
+                            <span class="step-number">02</span>
+                            <div>
+                                <h3>Recall</h3>
+                                <p>Hindsight searches prior incidents and surfaces the closest known fix path.</p>
+                            </div>
+                        </article>
+                        <article class="workflow-step">
+                            <span class="step-number">03</span>
+                            <div>
+                                <h3>Respond</h3>
+                                <p>The copilot returns a grounded recommendation and stores the resolved incident for future reuse.</p>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="panel signal-panel">
+                    <div class="panel-header compact">
+                        <div>
+                            <p class="section-kicker">Signals</p>
+                            <h2>Operator snapshot</h2>
+                        </div>
+                    </div>
+                    <div class="signal-grid">
+                        <div class="signal-card">
+                            <span class="signal-label">Current mode</span>
+                            <strong id="signalMode">Waiting</strong>
+                        </div>
+                        <div class="signal-card">
+                            <span class="signal-label">Memory confidence</span>
+                            <strong id="signalConfidence">0%</strong>
+                        </div>
+                        <div class="signal-card wide">
+                            <span class="signal-label">Demo tip</span>
+                            <strong>Run one error, then a similar variant to show Hindsight improving the second answer.</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel history-panel">
+                    <div class="panel-header compact">
+                        <div>
+                            <p class="section-kicker">Recent Memory</p>
+                            <h2>Session incident feed</h2>
+                        </div>
+                    </div>
+                    <div id="incidentTimeline" class="timeline empty-state">No incidents analyzed yet.</div>
+                </section>
+            </aside>
+
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
