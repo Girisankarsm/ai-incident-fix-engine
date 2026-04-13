@@ -1,73 +1,150 @@
-# Incident Memory Copilot
+# 🚀 Incident Memory Copilot
 
-Incident Memory Copilot is a hackathon-ready AI incident response agent for engineering and DevOps teams. It uses Groq for fast troubleshooting guidance and Hindsight by Vectorize as the persistent memory layer so the system can remember prior incidents, recall similar failures, and improve recommendations over time.
+🔗 **Live Demo:** https://ai-incident-fix-engine.onrender.com
+📝 **Technical Deep Dive (Article):** https://medium.com/p/e8971ecf0730?postPublishedType=initial
 
-## Why this fits the hackathon
+---
 
-- Solves a real business problem: faster incident triage and repeat outage resolution.
-- Makes memory central to the product, not incidental.
-- Shows a visible before-and-after: first incident gets a general fix, later incidents get memory-guided fixes.
-- Demonstrates persistent learning with Hindsight retain and recall.
+## 🧠 Overview
 
-## What the demo shows
+Incident Memory Copilot is a hackathon-ready AI incident response agent for engineering and DevOps teams.
 
-- A black, dashboard-style UI built for a live hackathon demo.
-- Incident classification, similarity band, and repeat counts.
-- Matched prior incident context and remembered fix.
-- A session incident feed that makes the learning curve visible.
-- Fallback local troubleshooting guidance when Groq is not configured, so the app still demos cleanly.
+It uses:
 
-## Stack
+* ⚡ **Groq** for fast troubleshooting guidance
+* 🧠 **Hindsight (Vectorize)** as a persistent memory layer
 
-- FastAPI backend
-- Vanilla HTML/CSS/JS frontend served by FastAPI
-- Groq LLM for remediation suggestions
-- Hindsight Memory for retain and recall
+This allows the system to:
 
-## One-command local run
+* Remember past incidents
+* Recall similar failures
+* Improve recommendations over time
 
-1. Go to the project:
+---
+
+## 🎯 Why this stands out
+
+* Solves a real-world DevOps problem: **faster incident resolution**
+* Memory is **core to the system**, not just an add-on
+* Shows **learning over time** (first vs repeated incidents)
+* Demonstrates **persistent AI memory (retain + recall)**
+
+---
+
+## 🖥️ What the demo shows
+
+* Dark, dashboard-style UI (optimized for demos)
+* Incident classification & similarity scoring
+* Past incident recall with stored fixes
+* Real-time incident feed showing learning behavior
+* Graceful fallback when AI is not configured
+
+---
+
+## ⚙️ Tech Stack
+
+* **Backend:** FastAPI
+* **Frontend:** HTML, CSS, JavaScript
+* **LLM:** Groq
+* **Memory Layer:** Hindsight (Vectorize)
+
+---
+
+## ⚡ One-command local setup
+
+1. Navigate to project:
+
    ```bash
    cd ai-incident-fix-engine
    ```
 
-2. Copy the environment template if needed:
+2. Copy environment template:
+
    ```bash
    cp .env.example .env
    ```
 
-3. Add your keys to `.env`:
-   - `GROQ_API_KEY=gsk_your_real_key_here`
-   - `HINDSIGHT_API_KEY=your_hindsight_key`
-   - `HINDSIGHT_BANK_ID=your_bank_id`
-   - `HINDSIGHT_ORG_PATH=your_org_path`
+3. Add your API keys:
 
-4. Start everything with one command:
+   ```bash
+   GROQ_API_KEY=gsk_your_real_key_here
+   HINDSIGHT_API_KEY=your_hindsight_key
+   HINDSIGHT_BANK_ID=your_bank_id
+   HINDSIGHT_ORG_PATH=your_org_path
+   ```
+
+4. Run the app:
+
    ```bash
    ./run.sh
    ```
 
 5. Open:
-   - App: `http://127.0.0.1:8000`
-   - API docs: `http://127.0.0.1:8000/docs`
 
-## Demo flow for judges
+   * App → http://127.0.0.1:8000
+   * Docs → http://127.0.0.1:8000/docs
 
-1. Run `sqlite3.OperationalError: no such table: users`
-   The app treats it as a new incident and stores the fix in memory.
+---
 
-2. Run a similar error such as `sqlite3.OperationalError: no such table: user_data`
-   The app recalls the prior issue, shows that memory was used, and responds with a stronger fix path.
+## 🎬 Demo Flow (for judges)
 
-3. Switch to another sample incident from the quick chips.
-   The incident feed starts showing repeated learning behavior over multiple runs.
+1. Input:
 
-## Troubleshooting
+   ```
+   sqlite3.OperationalError: no such table: users
+   ```
 
-If Hindsight returns `401 Invalid organization path`, update:
+   → System treats as new incident and stores solution
+
+2. Input similar error:
+
+   ```
+   sqlite3.OperationalError: no such table: user_data
+   ```
+
+   → System recalls memory + improves solution
+
+3. Try multiple errors
+   → Observe **learning behavior in incident feed**
+
+---
+
+## ⚠️ Troubleshooting
+
+If you get:
+
+```bash
+401 Invalid organization path
+```
+
+Fix:
 
 ```bash
 HINDSIGHT_ORG_PATH=your_org_path
 ```
 
-Then restart `./run.sh`.
+Then restart:
+
+```bash
+./run.sh
+```
+
+---
+
+## 🌍 Deployment
+
+This project is deployed on Render:
+👉 https://ai-incident-fix-engine.onrender.com
+
+---
+
+## ✍️ Author Note
+
+This project explores the intersection of:
+
+* AI reasoning
+* Memory systems
+* Real-world DevOps workflows
+
+Built for hackathons, but designed with **production thinking**.
+
