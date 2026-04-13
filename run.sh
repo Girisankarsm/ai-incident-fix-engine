@@ -19,4 +19,4 @@ if [ "${DEV_RELOAD:-0}" = "1" ]; then
   exec uvicorn main:app --reload --host 127.0.0.1 --port 8000
 fi
 
-exec uvicorn main:app --host 127.0.0.1 --port 8000
+exec uvicorn main:app --host 0.0.0.0 --port 8000
