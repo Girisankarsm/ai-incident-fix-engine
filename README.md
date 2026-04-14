@@ -8,7 +8,9 @@
 
 📝 Technical Deep Dive (Article 3): https://medium.com/@muhammedafzal1000/i-built-an-ai-that-stops-repeating-debugging-mistakes-075e280c768a
 
-🎥 Demo Video: https://youtu.be/CGe5-0ODNL0
+## 🎥 Project Demo  
+
+[![Watch the demo](https://img.youtube.com/vi/CGe5-0ODNL0/maxresdefault.jpg)](https://youtu.be/CGe5-0ODNL0)
 
 ## 🧠 Overview
 
