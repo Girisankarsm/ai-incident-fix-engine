@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Incident Memory Copilot - AI-powered incident response with memory-first approach">
     <title>Incident Memory Copilot</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -58,7 +60,8 @@
                 </div>
 
                 <label for="errorLog">Current incident</label>
-                <textarea id="errorLog" rows="5" placeholder="Example: psycopg2.OperationalError: connection to server at &quot;db&quot;, port 5432 failed: FATAL: password authentication failed for user &quot;postgres&quot;"></textarea>
+                <textarea id="errorLog" rows="5" placeholder="Example: psycopg2.OperationalError: connection to server at &quot;db&quot;, port 5432 failed: FATAL: password authentication failed for user &quot;postgres&quot;" aria-label="Error log or stack trace input" aria-describedby="errorLogHelp"></textarea>
+                <small id="errorLogHelp">Paste your error log, exception, or stack trace to analyze</small>
 
                 <div class="quick-examples">
                     <button type="button" class="chip" data-demo="sqlite3.OperationalError: no such table: users">Missing table</button>
@@ -67,8 +70,8 @@
                 </div>
 
                 <div class="action-row">
-                    <button type="button" id="analyzeBtn">Run Incident Analysis</button>
-                    <div id="progressPanel" class="progress-panel hidden" aria-live="polite">
+                    <button type="button" id="analyzeBtn" aria-label="Analyze incident and get recommendations">Run Incident Analysis</button>
+                    <div id="progressPanel" class="progress-panel hidden" aria-live="polite" role="status">
                         <div class="progress-copy">
                             <span class="progress-kicker">Live Analysis</span>
                             <strong id="progressTitle">Starting analysis</strong>
@@ -131,6 +134,9 @@
                             <div class="reference-card">
                                 <h3>Operator Notes</h3>
                                 <p class="reference-copy">Best demo sequence: trigger a new incident first, then replay a similar failure so the panel shows memory retrieval, confidence, and prior resolution context.</p>
+                                <button id="advancedAnalysisBtn" class="analysis-btn" aria-label="View detailed advanced analysis" onclick="openAdvancedPanel()" style="margin-top: 16px;">
+                                    Advanced Analysis
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -205,6 +211,67 @@
             </aside>
 
         </main>
+
+        <!-- Advanced Analysis Panel (Inline Modal) -->
+        <div id="advancedAnalysisPanel" class="advanced-panel hidden">
+            <div class="advanced-panel-content">
+                <div class="advanced-header">
+                    <h2>Advanced Incident Analysis</h2>
+                    <button class="advanced-close-btn" onclick="closeAdvancedPanel()">×</button>
+                </div>
+                
+                <div class="advanced-stats-row">
+                    <div class="advanced-stat">
+                        <span class="advanced-stat-label">Category</span>
+                        <div id="adv-category-inline">—</div>
+                    </div>
+                    <div class="advanced-stat">
+                        <span class="advanced-stat-label">Severity</span>
+                        <div id="adv-severity-inline">—</div>
+                    </div>
+                    <div class="advanced-stat">
+                        <span class="advanced-stat-label">Priority</span>
+                        <div id="adv-priority-inline">—</div>
+                    </div>
+                    <div class="advanced-stat">
+                        <span class="advanced-stat-label">Complexity</span>
+                        <div id="adv-complexity-inline">—</div>
+                    </div>
+                </div>
+
+                <div class="advanced-content-grid">
+                    <div class="advanced-col-left">
+                        <div class="advanced-card">
+                            <h4>Incident Metrics Breakdown</h4>
+                            <canvas id="advInlineChart" height="150"></canvas>
+                        </div>
+                        <div class="advanced-card" style="margin-top: 12px;">
+                            <h4>Affected Components</h4>
+                            <div id="adv-components-inline"></div>
+                        </div>
+                    </div>
+                    <div class="advanced-col-right">
+                        <div class="advanced-card">
+                            <h4>Error Classification</h4>
+                            <p id="adv-cat-detail">—</p>
+                        </div>
+                        <div class="advanced-card" style="margin-top: 12px;">
+                            <h4>Severity Assessment</h4>
+                            <p id="adv-sev-detail">—</p>
+                        </div>
+                        <div class="advanced-card" style="margin-top: 12px;">
+                            <h4>Root Cause Analysis</h4>
+                            <div id="adv-causes-inline"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="advanced-card" style="margin-top: 12px;">
+                    <h4>Recommended Actions</h4>
+                    <div id="adv-actions-inline"></div>
+                </div>
+            </div>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>

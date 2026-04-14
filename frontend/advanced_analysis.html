@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Advanced Analysis Dashboard - Incident Memory Copilot">
+    <title>Advanced Analysis Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .adv-dashboard {
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 24px;
+        }
+        .adv-max-width {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .adv-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .adv-header-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+        .adv-back-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .adv-back-btn:hover {
+            border-color: var(--border-hover);
+            background: var(--bg-soft);
+        }
+        .adv-quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .adv-stat-card {
+            background: linear-gradient(135deg, var(--panel-strong) 0%, var(--panel) 100%);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        .adv-stat-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+        .adv-stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .adv-stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .adv-main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .adv-large-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        .adv-chart-container {
+            position: relative;
+            height: 250px;
+            margin: 12px 0;
+        }
+        .adv-insight-box {
+            background: var(--bg-soft);
+            border-left: 3px solid var(--accent-2);
+            border-radius: 6px;
+            padding: 14px;
+            margin-top: 14px;
+            font-size: 0.93rem;
+            color: var(--text-secondary);
+        }
+        .adv-section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .adv-section-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: var(--shadow);
+        }
+        .adv-card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .adv-card-content {
+            font-size: 0.93rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .adv-component-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .adv-component-tag {
+            background: var(--bg-soft);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 6px 12px;
+            font-size: 0.92rem;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+        .adv-actions-section {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+        .adv-actions-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .adv-action-item {
+            background: var(--bg-soft);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-size: 0.93rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            display: flex;
+            gap: 10px;
+        }
+        .adv-action-number {
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 24px;
+        }
+        .adv-error-log-section {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .adv-error-log-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .adv-error-log-content {
+            background: var(--bg-soft);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.92rem;
+            color: var(--text-secondary);
+            word-break: break-word;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .adv-priority-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-top: 10px;
+        }
+        .adv-priority-critical {
+            background: rgba(220, 38, 38, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(220, 38, 38, 0.4);
+        }
+        .adv-priority-high {
+            background: rgba(249, 115, 22, 0.2);
+            color: #fed7aa;
+            border: 1px solid rgba(249, 115, 22, 0.4);
+        }
+        .adv-priority-medium {
+            background: rgba(234, 179, 8, 0.2);
+            color: #fef08a;
+            border: 1px solid rgba(234, 179, 8, 0.4);
+        }
+        .adv-priority-low {
+            background: rgba(34, 197, 94, 0.2);
+            color: #bbf7d0;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+        @media (max-width: 1024px) {
+            .adv-main-grid {
+                grid-template-columns: 1fr;
+            }
+            .adv-quick-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 640px) {
+            .adv-dashboard {
+                padding: 12px;
+            }
+            .adv-header-title {
+                font-size: 1.5rem;
+            }
+            .adv-header-top {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+            .adv-quick-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .adv-stat-value {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="adv-dashboard">
+        <div class="adv-max-width">
+            <!-- Header -->
+            <div class="adv-header-top">
+                <h1 class="adv-header-title">[≡] Advanced Analysis</h1>
+                <button class="adv-back-btn" onclick="closeAdvancedAnalysis()">← Close Analysis</button>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="adv-quick-stats">
+                <div class="adv-stat-card">
+                    <div class="adv-stat-label">[#] Category</div>
+                    <div id="adv-stat-category" class="adv-stat-value">—</div>
+                </div>
+                <div class="adv-stat-card">
+                    <div class="adv-stat-label">[!] Severity</div>
+                    <div id="adv-stat-severity" class="adv-stat-value">—</div>
+                </div>
+                <div class="adv-stat-card">
+                    <div class="adv-stat-label">[*] Priority</div>
+                    <div id="adv-stat-priority" class="adv-stat-value">—</div>
+                </div>
+                <div class="adv-stat-card">
+                    <div class="adv-stat-label">[=] Complexity</div>
+                    <div id="adv-stat-complexity" class="adv-stat-value">—</div>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="adv-main-grid">
+                <!-- Left: Visualization & Analysis -->
+                <div>
+                    <!-- Score Breakdown Chart -->
+                    <div class="adv-large-card">
+                        <h3 style="margin-top: 0; font-size: 1.05rem; font-weight: 600;">[+] Incident Score Analysis</h3>
+                        <div class="adv-chart-container">
+                            <canvas id="scoreChart"></canvas>
+                        </div>
+                        <div class="adv-insight-box">
+                            <strong>[*] Insight:</strong> <span id="adv-insight-score">Analyze incident priority and complexity metrics.</span>
+                        </div>
+                    </div>
+
+                    <!-- Components Breakdown -->
+                    <div class="adv-large-card" style="margin-top: 20px;">
+                        <h3 style="margin-top: 0; font-size: 1.05rem; font-weight: 600;">[^] Affected Systems</h3>
+                        <div class="adv-component-list" id="adv-components-visual"></div>
+                        <div class="adv-insight-box" style="margin-top: 12px;">
+                            <strong>[~] Impact:</strong> <span id="adv-insight-components">Monitor these systems closely.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Key Metrics -->
+                <div>
+                    <!-- Error Category -->
+                    <div class="adv-section-card">
+                        <div class="adv-card-title">[#] Error Category</div>
+                        <div class="adv-card-content" id="adv-category-detail">—</div>
+                    </div>
+
+                    <!-- Severity Details -->
+                    <div class="adv-section-card" style="margin-top: 16px;">
+                        <div class="adv-card-title">[!] Severity Level</div>
+                        <div class="adv-card-content" id="adv-severity-detail">—</div>
+                    </div>
+
+                    <!-- Root Causes -->
+                    <div class="adv-section-card" style="margin-top: 16px;">
+                        <div class="adv-card-title">[?] Root Causes</div>
+                        <div id="adv-causes-list" style="font-size: 0.93rem; color: var(--text-secondary);"></div>
+                    </div>
+
+                    <!-- Priority Badge -->
+                    <div style="margin-top: 16px; text-align: center;">
+                        <div id="adv-priority-badge-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommended Actions -->
+            <div class="adv-actions-section">
+                <h3 class="adv-actions-title">[>] Recommended Actions</h3>
+                <div id="adv-actions-list"></div>
+            </div>
+
+            <!-- Error Log -->
+            <div class="adv-error-log-section">
+                <h3 class="adv-error-log-title">[~] Error Log Details</h3>
+                <div class="adv-error-log-content" id="adv-error-log-content">—</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const data = JSON.parse(sessionStorage.getItem('analysisData') || '{}');
+
+        // Function to close/hide advanced analysis
+        function closeAdvancedAnalysis() {
+            document.getElementById('advancedAnalysisContainer').style.display = 'none';
+            // Scroll to top of main incident panel
+            window.scrollTo(0, 0);
+        }
+
+        // Quick Stats
+        document.getElementById('adv-stat-category').textContent = data.error_category?.toUpperCase() || '—';
+        document.getElementById('adv-stat-severity').textContent = data.severity || '—';
+        document.getElementById('adv-stat-priority').textContent = data.incident_score?.priority_level || '—';
+        document.getElementById('adv-stat-complexity').textContent = (data.incident_score?.complexity_score || 0) + '/10';
+
+        // Category Details
+        document.getElementById('adv-category-detail').textContent = data.error_category ? 
+            `This incident is classified as a ${data.error_category.toUpperCase()} issue.` : '—';
+
+        // Severity Details
+        document.getElementById('adv-severity-detail').textContent = data.severity ? 
+            `${data.severity} (Score: ${data.severity_score}/10)` : '—';
+
+        // Root Causes
+        const causesList = document.getElementById('adv-causes-list');
+        if (data.root_causes && data.root_causes.length) {
+            causesList.innerHTML = data.root_causes.map(c => `<div style="margin-bottom: 6px;">• ${c}</div>`).join('');
+        } else {
+            causesList.textContent = '—';
+        }
+
+        // Components Visual
+        const compDiv = document.getElementById('adv-components-visual');
+        if (data.affected_components && data.affected_components.length) {
+            compDiv.innerHTML = data.affected_components
+                .map(c => `<span class="adv-component-tag">⚙️ ${c.replace(/_/g, ' ')}</span>`)
+                .join('');
+            document.getElementById('adv-insight-components').textContent = 
+                `${data.affected_components.length} system(s) affected. Prioritize checks here.`;
+        } else {
+            compDiv.innerHTML = '<span class="adv-component-tag">Unknown</span>';
+        }
+
+        // Priority Badge
+        const priorityLevel = data.incident_score?.priority_level || 'LOW';
+        const priorityClass = `adv-priority-${priorityLevel.toLowerCase()}`;
+        document.getElementById('adv-priority-badge-container').innerHTML = 
+            `<div class="adv-priority-badge ${priorityClass}">🚨 ${priorityLevel} PRIORITY</div>`;
+
+        // Score Insight
+        const score = data.incident_score?.priority_score || 0;
+        let scoreInsight = 'Review all metrics carefully.';
+        if (score >= 70) scoreInsight = 'Critical incident - Immediate action required!';
+        else if (score >= 50) scoreInsight = 'High priority - Address within the hour.';
+        else if (score >= 30) scoreInsight = 'Medium priority - Monitor closely.';
+        else scoreInsight = 'Low priority - Plan resolution.';
+        document.getElementById('adv-insight-score').textContent = scoreInsight;
+
+        // Recommended Actions
+        const actionsList = document.getElementById('adv-actions-list');
+        if (data.recommended_actions && data.recommended_actions.length) {
+            actionsList.innerHTML = data.recommended_actions.map((action, idx) => {
+                const text = action.replace(/^\d+\.\s*/, '');
+                return `<div class="adv-action-item"><span class="adv-action-number">${idx + 1}.</span><span>${text}</span></div>`;
+            }).join('');
+        } else {
+            actionsList.innerHTML = '<div class="adv-action-item"><span class="adv-action-number">—</span></div>';
+        }
+
+        // Error Log
+        document.getElementById('adv-error-log-content').textContent = data.error_log || '—';
+
+        // Score Chart (Radar)
+        const scoreCtx = document.getElementById('scoreChart');
+        if (scoreCtx) {
+            new Chart(scoreCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['Impact', 'Urgency', 'Complexity (inverse)'],
+                    datasets: [{
+                        label: 'Incident Metrics',
+                        data: [
+                            data.incident_score?.impact_score || 0,
+                            data.incident_score?.urgency_score || 0,
+                            10 - (data.incident_score?.complexity_score || 0)
+                        ],
+                        borderColor: '#e5e5e5',
+                        backgroundColor: 'rgba(229, 229, 229, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#e5e5e5',
+                        pointBorderColor: '#e5e5e5',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#a3a3a3' }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 10,
+                            grid: { color: 'rgba(38, 38, 38, 0.5)' },
+                            ticks: { color: '#a3a3a3' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

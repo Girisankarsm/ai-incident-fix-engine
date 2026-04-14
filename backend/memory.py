@@ -1,6 +1,10 @@
 import os
 import requests
 import datetime
+import logging
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 
 class HindsightMemory:
@@ -10,6 +14,7 @@ class HindsightMemory:
         self.api_key = os.getenv("HINDSIGHT_API_KEY")
         self.org_path = os.getenv("HINDSIGHT_ORG_PATH", "default")
         self.base_url = os.getenv("HINDSIGHT_BASE_URL", "https://api.vectorize.io")
+        self.timeout = 15  # Centralized timeout config
 
     def _memory_base(self) -> str:
         return f"{self.base_url}/v1/{self.org_path}/banks/{self.bank_id}/memories"
@@ -33,7 +38,10 @@ class HindsightMemory:
         return text[start:end].strip()
 
     def _normalize_error(self, text: str) -> str:
-        return " ".join((text or "").strip().lower().split())
+        """Normalize error text for comparison."""
+        if not isinstance(text, str):
+            return ""
+        return " ".join(text.strip().lower().split())
 
     def _extract_solution(self, text: str) -> str:
         """Extract stored solution from retained content payload."""
@@ -48,8 +56,9 @@ class HindsightMemory:
         return text[start:].strip()
 
     def retain(self, error_log: str, solution: str):
+        """Store error and solution in Hindsight memory."""
         if not self.api_key:
-            print("WARNING: HINDSIGHT_API_KEY not set. Cannot retain.")
+            logger.warning("HINDSIGHT_API_KEY not set. Cannot retain incident.")
             return
 
         url = self._memory_base()
@@ -63,15 +72,18 @@ class HindsightMemory:
         payload = {"items": [{"content": content}]}
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
             if response.status_code >= 400:
-                print(f"Hindsight Retain API returned {response.status_code}: {response.text}")
+                logger.error(f"Hindsight Retain API returned {response.status_code}: {response.text}")
+        except requests.Timeout:
+            logger.error(f"Hindsight Retain API timeout after {self.timeout}s")
         except Exception as e:
-            print(f"Hindsight API Retain Error: {e}")
+            logger.error(f"Hindsight API Retain Error: {type(e).__name__}: {e}")
 
     def recall(self, error_log: str, threshold: float = 0.3):
+        """Recall similar incidents from Hindsight memory."""
         if not self.api_key:
-            print("WARNING: HINDSIGHT_API_KEY not set. Cannot recall.")
+            logger.warning("HINDSIGHT_API_KEY not set. Cannot recall.")
             return None
 
         url = f"{self._memory_base()}/recall"
@@ -83,7 +95,7 @@ class HindsightMemory:
         payload = {"query": error_log}
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
             if response.status_code == 200:
                 data = response.json()
                 results = data.get("results", [])
@@ -113,21 +125,21 @@ class HindsightMemory:
                             "solution": matched_solution or best_match.get("text", "Content found in memory."),
                             "timestamp": datetime.datetime.now().isoformat(),
                             "confidence": round(score * 100, 2),
-                            # Exact repeated incidents that match current error text.
                             "seen_before_count": exact_repeats,
-                            # Broader semantic recalls from memory.
                             "similar_matches_count": len(results),
                         }
             else:
                 error_text = response.text
                 if response.status_code == 401 and "Invalid organization path" in error_text:
-                    print(
+                    logger.error(
                         "Hindsight Recall API returned 401: Invalid organization path. "
                         "Set HINDSIGHT_ORG_PATH in .env to your org path from Vectorize Cloud."
                     )
                 else:
-                    print(f"Hindsight Recall API returned {response.status_code}: {error_text}")
+                    logger.error(f"Hindsight Recall API returned {response.status_code}: {error_text}")
+        except requests.Timeout:
+            logger.error(f"Hindsight Recall API timeout after {self.timeout}s")
         except Exception as e:
-            print(f"Hindsight API Recall Error: {e}")
+            logger.error(f"Hindsight API Recall Error: {type(e).__name__}: {e}")
 
         return None

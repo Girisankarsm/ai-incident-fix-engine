@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -6,13 +7,21 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from groq import Groq
 
 from memory import HindsightMemory
+from advanced_features import IncidentAnalyzer, ErrorCategory
 
 load_dotenv()
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Incident Fix Engine")
 app.add_middleware(
@@ -25,6 +34,7 @@ app.add_middleware(
 memory_system = HindsightMemory()
 incident_history: list[str] = []
 incident_feed: list[dict] = []
+analyzer = IncidentAnalyzer()  # Initialize analyzer
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -35,17 +45,30 @@ if os.getenv("GROQ_API_KEY"):
 
 class AnalyzeRequest(BaseModel):
     user_id: str
-    error_log: str
+    error_log: str = Field(..., min_length=1, description="The error log or stack trace to analyze")
 
 class AnalyzeResponse(BaseModel):
     solution: str
     memory_used: bool
-    past_reference: dict | None
-    seen_before_count: int | None
-    confidence: float | None
+    past_reference: dict | None = None
+    seen_before_count: int | None = None
+    confidence: float | None = None
     incident_summary: dict
     recent_incidents: list[dict]
     system_status: dict
+    # New advanced fields
+    error_category: str = "unknown"
+    severity: str = "MEDIUM"
+    severity_score: int = 5
+    root_causes: list[str] = []
+    affected_components: list[str] = []
+    incident_score: dict = {}
+    recommended_actions: list[str] = []
+    trend_analysis: dict = {}
+    trend_analysis: dict = {}
+
+    trend_analysis: dict = {}
+
 
 
 def _normalize_error(text: str) -> str:
@@ -97,15 +120,28 @@ def _is_invalid_api_key_error(error: Exception) -> bool:
     return "invalid api key" in message or "invalid_api_key" in message
 
 
-def _record_incident(error_log: str, memory_used: bool, confidence: float, seen_count: int) -> None:
+def _record_incident(
+    error_log: str, 
+    memory_used: bool, 
+    confidence: float, 
+    seen_count: int,
+    category: str,
+    severity: str,
+    severity_score: int
+) -> None:
+    """Record incident in feed, keeping only the most recent 15."""
     incident_feed.insert(0, {
         "error_log": error_log,
         "memory_used": memory_used,
         "confidence": confidence,
         "seen_before_count": seen_count,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "error_category": category,
+        "severity": severity,
+        "severity_score": severity_score,
     })
-    del incident_feed[8:]
+    # Keep only the 15 most recent incidents
+    incident_feed[:] = incident_feed[:15]
 
 
 @app.get("/api/health")
@@ -126,7 +162,21 @@ def recent_incidents():
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze_error(request: AnalyzeRequest):
-    error_log = request.error_log
+    """Analyze an incident using Hindsight memory and Groq AI with advanced features."""
+    error_log = request.error_log.strip()
+    
+    if not error_log:
+        raise HTTPException(status_code=400, detail="Error log cannot be empty")
+    
+    logger.info(f"Analyzing incident for user {request.user_id}")
+    
+    # ADVANCED: Classify and analyze the error
+    error_category = analyzer.classify_error(error_log)
+    severity_info = analyzer.assess_severity(error_log, error_category)
+    root_causes = analyzer.extract_root_causes(error_log, error_category)
+    affected_components = analyzer.get_affected_components(error_log)
+    
+    logger.info(f"Error classified as: {error_category.value}, Severity: {severity_info['severity']}")
     
     # 1. Recall Hindsight Memory
     past_memory = memory_system.recall(error_log)
@@ -146,6 +196,7 @@ def analyze_error(request: AnalyzeRequest):
         }
         seen_count = max(past_memory.get("seen_before_count", 0), local_seen_count)
         confidence = past_memory.get("confidence", 0.0)
+        logger.info(f"Memory hit found with confidence {confidence}%")
 
         prompt = f"""You are a senior DevOps / Full-stack engineer diagnosing issues.
 The user encountered the following current error:
@@ -170,6 +221,7 @@ The user encountered the following current error:
 There is no similar past issue in Hindsight Memory. 
 Please provide a general solution and step-by-step fix for this error.
 """
+        logger.info("No memory hit found - generating new incident response")
 
     groq_status = "fallback"
 
@@ -183,19 +235,45 @@ Please provide a general solution and step-by-step fix for this error.
                 )
                 solution = response.choices[0].message.content
                 groq_status = "ready"
+                logger.info("Successfully generated solution with Groq")
             except Exception as groq_error:
                 if _is_invalid_api_key_error(groq_error):
+                    logger.warning("Invalid Groq API key, using fallback solution")
                     solution = _build_fallback_solution(error_log, past_memory)
                     groq_status = "invalid-key"
                 else:
+                    logger.error(f"Groq API error: {groq_error}")
                     raise
         else:
+            logger.info("Groq client not configured, using fallback solution")
             solution = _build_fallback_solution(error_log, past_memory)
 
-        # 2. Retain inside Hindsight memory
+        # 2. Retain incident in Hindsight memory
         memory_system.retain(error_log, solution)
         incident_history.append(error_log)
-        _record_incident(error_log, memory_used, confidence, seen_count)
+        _record_incident(
+            error_log, 
+            memory_used, 
+            confidence, 
+            seen_count,
+            error_category.value,
+            severity_info["severity"],
+            severity_info["severity_score"]
+        )
+        
+        # ADVANCED: Calculate scores and get recommendations
+        incident_score = analyzer.calculate_incident_score(
+            severity_info["severity_score"],
+            confidence / 100.0 if confidence > 0 else 0.5
+        )
+        recommended_actions = analyzer.get_recommended_actions(
+            error_category,
+            severity_info["severity"],
+            root_causes
+        )
+        
+        # Get trend analysis from the updated incident feed
+        trend_analysis = analyzer.analyze_incident_trends(incident_feed)
 
         return AnalyzeResponse(
             solution=solution,
@@ -203,6 +281,15 @@ Please provide a general solution and step-by-step fix for this error.
             past_reference=past_reference_data if memory_used else None,
             seen_before_count=seen_count if memory_used else None,
             confidence=confidence if memory_used else None,
+            # New advanced fields
+            error_category=error_category.value,
+            severity=severity_info["severity"],
+            severity_score=severity_info["severity_score"],
+            root_causes=root_causes,
+            affected_components=affected_components,
+            incident_score=incident_score,
+            recommended_actions=recommended_actions,
+            trend_analysis=trend_analysis,
             incident_summary={
                 "status": "known-incident" if memory_used else "new-incident",
                 "memory_hits": seen_count if memory_used else 0,
@@ -219,7 +306,10 @@ Please provide a general solution and step-by-step fix for this error.
                 "hindsight_configured": bool(os.getenv("HINDSIGHT_API_KEY")),
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Unexpected error analyzing incident: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
