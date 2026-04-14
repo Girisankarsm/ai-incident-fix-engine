@@ -37,6 +37,24 @@ class HindsightMemory:
 
         return text[start:end].strip()
 
+    def _extract_category(self, text: str) -> str:
+        """Extract error category from retained content."""
+        if not isinstance(text, str):
+            return "unknown"
+        
+        marker = "Category:"
+        error_marker = "\nError Log:"
+        
+        if marker not in text:
+            return "unknown"
+        
+        start = text.find(marker) + len(marker)
+        end = text.find(error_marker, start)
+        if end == -1:
+            end = len(text)
+        
+        return text[start:end].strip().lower()
+
     def _normalize_error(self, text: str) -> str:
         """Normalize error text for comparison."""
         if not isinstance(text, str):
@@ -55,14 +73,15 @@ class HindsightMemory:
         start = text.find(marker) + len(marker)
         return text[start:].strip()
 
-    def retain(self, error_log: str, solution: str):
-        """Store error and solution in Hindsight memory."""
+    def retain(self, error_log: str, solution: str, error_category: str = "unknown"):
+        """Store error and solution in Hindsight memory with category metadata."""
         if not self.api_key:
             logger.warning("HINDSIGHT_API_KEY not set. Cannot retain incident.")
             return
 
         url = self._memory_base()
-        content = f"Error Log: {error_log}\nSolution Fix: {solution}"
+        # Store category metadata along with error and solution for future validation
+        content = f"Category: {error_category}\nError Log: {error_log}\nSolution Fix: {solution}"
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -81,7 +100,7 @@ class HindsightMemory:
             logger.error(f"Hindsight API Retain Error: {type(e).__name__}: {e}")
 
     def recall(self, error_log: str, threshold: float = 0.3):
-        """Recall similar incidents from Hindsight memory."""
+        """Recall similar incidents from Hindsight memory with category validation."""
         if not self.api_key:
             logger.warning("HINDSIGHT_API_KEY not set. Cannot recall.")
             return None
@@ -109,6 +128,7 @@ class HindsightMemory:
                         exact_repeats = 0
                         matched_error = self._extract_logged_error(best_match.get("text", ""))
                         matched_solution = self._extract_solution(best_match.get("text", ""))
+                        matched_category = self._extract_category(best_match.get("text", ""))
 
                         for item in results:
                             raw_text = item.get("text", "")
@@ -127,6 +147,7 @@ class HindsightMemory:
                             "confidence": round(score * 100, 2),
                             "seen_before_count": exact_repeats,
                             "similar_matches_count": len(results),
+                            "error_category": matched_category,  # NEW: Category for validation
                         }
             else:
                 error_text = response.text

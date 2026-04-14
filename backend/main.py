@@ -90,34 +90,106 @@ def _local_seen_before_count(error_log: str, threshold: float = 0.5) -> int:
 
 
 def _build_fallback_solution(error_log: str, past_memory: dict | None) -> str:
-    intro = (
-        "This looks similar to a previous issue...\n\n"
-        if past_memory else
-        "No identical memory was found yet, so here is a first-pass incident response plan.\n\n"
-    )
-    reference = ""
-    if past_memory:
-        reference = (
-            f"Previous incident: {past_memory['error_log']}\n"
-            f"Previous fix: {past_memory['solution']}\n\n"
+    """Build a more specific fallback solution with actionable steps."""
+    if past_memory and past_memory.get("solution"):
+        intro = (
+            "Based on analysis, a similar incident was found. "
+            "The previously successful fix involved:\n\n"
         )
-
-    return (
-        f"{intro}"
-        f"{reference}"
-        "Recommended next steps:\n"
-        "1. Identify the failing service, dependency, or migration named in the error.\n"
-        "2. Check the most recent deploy, config change, or schema change touching that component.\n"
-        "3. Validate environment variables, credentials, and network access before retrying.\n"
-        "4. Reproduce the issue locally or in staging with the same input if possible.\n"
-        "5. Capture the confirmed root cause and final fix so similar incidents can be resolved faster next time.\n\n"
-        f"Current error:\n{error_log}"
-    )
+        reference = (
+            f"Previous Error: {past_memory['error_log']}\n"
+            f"Previous Fix: {past_memory['solution']}\n\n"
+        )
+        return (
+            f"{intro}"
+            f"{reference}"
+            "Apply the same approach to this incident. "
+            "If the error differs slightly, modify the fix steps accordingly.\n\n"
+            f"Current Error Context:\n{error_log}"
+        )
+    else:
+        return (
+            "No exact match found. Providing best-effort resolution.\n\n"
+            "Recommended diagnostic and resolution steps:\n"
+            "1. Review the exact error message and stack trace - identify which service/component failed.\n"
+            "2. Check recent deployments or configuration changes that might have triggered this.\n"
+            "3. Validate all dependencies, services, and environment variables are properly configured.\n"
+            "4. Check system resources (disk space, memory, file descriptor limits):\n"
+            "   - df -h (disk usage)\n"
+            "   - free -m (memory)\n"
+            "   - ulimit -a (file descriptor limits)\n"
+            "5. Review logs for the affected service:\n"
+            "   - tail -100f /var/log/app.log\n"
+            "   - journalctl -u service_name -n 50\n"
+            "6. If it's a database error:\n"
+            "   - Check database connectivity and authentication\n"
+            "   - Verify table/schema existence\n"
+            "7. If it's a network error:\n"
+            "   - Check DNS resolution: nslookup/dig\n"
+            "   - Check connectivity: telnet/nc\n"
+            "   - Review firewall rules\n"
+            "8. Once identified, document the root cause and fix for future reference.\n\n"
+            f"Error Details:\n{error_log}"
+        )
 
 
 def _is_invalid_api_key_error(error: Exception) -> bool:
     message = str(error).lower()
     return "invalid api key" in message or "invalid_api_key" in message
+
+
+def _should_use_memory(
+    current_category: str,
+    past_memory: dict | None,
+    confidence: float,
+    seen_count: int
+) -> bool:
+    """
+    Determine if memory should actually be used.
+    
+    Fixes critical issue: system was using memory even when categories didn't match.
+    
+    Rules:
+    1. Must have a memory match
+    2. Categories must match (sqlite != permission)
+    3. Confidence must be reasonable (>50%)
+    4. Seen count must be > 0
+    """
+    if not past_memory:
+        return False
+    
+    # Get past memory category
+    past_category = past_memory.get("error_category", "unknown")
+    
+    # Rule 1: Categories must match - THIS IS CRITICAL
+    if current_category != past_category:
+        logger.warning(
+            f"Memory rejected: category mismatch. "
+            f"Current: {current_category}, Past: {past_category}"
+        )
+        return False
+    
+    # Rule 2: Confidence must be adequate (>50%)
+    if confidence < 50:
+        logger.warning(
+            f"Memory rejected: low confidence {confidence}%. "
+            f"Threshold is 50%"
+        )
+        return False
+    
+    # Rule 3: Seen count must indicate actual previous occurrence
+    if seen_count == 0:
+        logger.warning(
+            "Memory rejected: seen_before_count is 0. "
+            "Cannot use memory for first occurrence"
+        )
+        return False
+    
+    logger.info(
+        f"Memory validated: category={current_category}, "
+        f"confidence={confidence}%, seen={seen_count}"
+    )
+    return True
 
 
 def _record_incident(
@@ -127,7 +199,8 @@ def _record_incident(
     seen_count: int,
     category: str,
     severity: str,
-    severity_score: int
+    severity_score: int,
+    past_memory: dict | None = None
 ) -> None:
     """Record incident in feed, keeping only the most recent 15."""
     incident_feed.insert(0, {
@@ -139,6 +212,8 @@ def _record_incident(
         "error_category": category,
         "severity": severity,
         "severity_score": severity_score,
+        # Store category in memory for future validation
+        "past_memory": past_memory
     })
     # Keep only the 15 most recent incidents
     incident_feed[:] = incident_feed[:15]
@@ -182,35 +257,64 @@ def analyze_error(request: AnalyzeRequest):
     past_memory = memory_system.recall(error_log)
     local_seen_count = _local_seen_before_count(error_log, threshold=0.5)
     
+    # CRITICAL FIX: Use proper category-based validation
     memory_used = False
     past_reference_data = None
-    seen_count = 0
+    seen_count = local_seen_count
     confidence = 0.0
+    resolution_mode = "fresh_analysis"
 
     if past_memory:
-        memory_used = True
-        past_reference_data = {
-            "error_log": past_memory["error_log"],
-            "solution": past_memory["solution"],
-            "timestamp": past_memory["timestamp"]
-        }
-        seen_count = max(past_memory.get("seen_before_count", 0), local_seen_count)
+        # Get confidence from memory
         confidence = past_memory.get("confidence", 0.0)
-        logger.info(f"Memory hit found with confidence {confidence}%")
+        
+        # FIXED: Check if memory should actually be used based on categories
+        if _should_use_memory(
+            current_category=error_category.value,
+            past_memory=past_memory,
+            confidence=confidence,
+            seen_count=seen_count
+        ):
+            memory_used = True
+            resolution_mode = "memory_guided"
+            past_reference_data = {
+                "error_log": past_memory["error_log"],
+                "solution": past_memory["solution"],
+                "timestamp": past_memory["timestamp"]
+            }
+            logger.info(
+                f"Memory VALIDATED and used: category={error_category.value}, "
+                f"confidence={confidence}%, seen={seen_count}"
+            )
+        else:
+            # Memory found but not suitable
+            memory_used = False
+            confidence = 0.0
+            seen_count = 0
+            resolution_mode = "fresh_analysis"
+            logger.info(
+                f"Memory REJECTED (category mismatch or low quality): "
+                f"past_category={past_memory.get('error_category', 'unknown')}, "
+                f"current_category={error_category.value}"
+            )
 
+    # Build prompt based on resolution mode
+    if memory_used and resolution_mode == "memory_guided":
         prompt = f"""You are a senior DevOps / Full-stack engineer diagnosing issues.
 The user encountered the following current error:
 ---
 {error_log}
 ---
 
-Hindsight Memory has found a similar past incident:
+A similar past incident was found:
 Past Error: {past_memory['error_log']}
 Past Solution: {past_memory['solution']}
 
-Since a similar issue exists, you MUST start your response exactly with "This looks similar to a previous issue...".
-Then, suggest the previously successful fix first. If the fix is not fully applicable, provide any updated or modified steps.
-"""
+Since a similar issue exists with {confidence}% confidence, you MUST start your response exactly with:
+"This looks similar to a previous issue we resolved successfully..."
+
+Then, suggest the previously successful fix first. If the fix needs adjustment for current context, provide updated steps.
+Provide actionable, specific commands and configurations, not generic advice."""
     else:
         prompt = f"""You are a senior DevOps / Full-stack engineer diagnosing issues.
 The user encountered the following current error:
@@ -218,10 +322,15 @@ The user encountered the following current error:
 {error_log}
 ---
 
-There is no similar past issue in Hindsight Memory. 
-Please provide a general solution and step-by-step fix for this error.
-"""
-        logger.info("No memory hit found - generating new incident response")
+No matching previous incident found in memory. Provide a fresh analysis and solution.
+Be specific with:
+- Root cause analysis
+- Actionable steps with actual commands/configurations
+- File paths and permission specifications
+- Not generic advice
+
+For a {error_category.value} error with {severity_info['severity']} severity, provide exact fixes."""
+        logger.info("Fresh analysis - generating new incident response without memory")
 
     groq_status = "fallback"
 
@@ -239,17 +348,17 @@ Please provide a general solution and step-by-step fix for this error.
             except Exception as groq_error:
                 if _is_invalid_api_key_error(groq_error):
                     logger.warning("Invalid Groq API key, using fallback solution")
-                    solution = _build_fallback_solution(error_log, past_memory)
+                    solution = _build_fallback_solution(error_log, past_memory if memory_used else None)
                     groq_status = "invalid-key"
                 else:
                     logger.error(f"Groq API error: {groq_error}")
                     raise
         else:
             logger.info("Groq client not configured, using fallback solution")
-            solution = _build_fallback_solution(error_log, past_memory)
+            solution = _build_fallback_solution(error_log, past_memory if memory_used else None)
 
-        # 2. Retain incident in Hindsight memory
-        memory_system.retain(error_log, solution)
+        # 2. Retain incident in Hindsight memory with category info
+        memory_system.retain(error_log, solution, error_category=error_category.value)
         incident_history.append(error_log)
         _record_incident(
             error_log, 
@@ -258,7 +367,8 @@ Please provide a general solution and step-by-step fix for this error.
             seen_count,
             error_category.value,
             severity_info["severity"],
-            severity_info["severity_score"]
+            severity_info["severity_score"],
+            past_memory=past_memory
         )
         
         # ADVANCED: Calculate scores and get recommendations
