@@ -8,6 +8,8 @@
 
 📝 Technical Deep Dive (Article 3): https://medium.com/@muhammedafzal1000/i-built-an-ai-that-stops-repeating-debugging-mistakes-075e280c768a
 
+🎥 Demo Video: https://youtu.be/CGe5-0ODNL0
+
 ## 🧠 Overview
 
 Incident Memory Copilot is a hackathon-ready AI incident response agent for engineering and DevOps teams.
