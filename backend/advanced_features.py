@@ -461,52 +461,73 @@ class IncidentAnalyzer:
         """
         actions = []
         
-        # Always recommend checking the error details
-        actions.append("1. Review full error message and stack trace for context")
-        
-        # Category-specific actions
+        # Category-specific PRIORITIZED actions (most likely first)
         if category == ErrorCategory.DATABASE:
             actions.extend([
-                "2. Verify database connectivity and credentials",
-                "3. Check database server status and logs",
-                "4. Validate schema and table existence",
-                "5. Review recent database migrations or changes"
+                "1. Check if database service is running and accessible",
+                "2. Verify credentials and connection parameters",
+                "3. Validate affected table/schema exists",
+                "Optional: Check recent migrations, review database logs"
             ])
         
         elif category == ErrorCategory.NETWORK:
             actions.extend([
-                "2. Check network connectivity (ping, DNS, traceroute)",
-                "3. Verify service is running and accessible",
-                "4. Check firewall rules and network policies",
-                "5. Review service logs for errors"
+                "1. Check if remote service is running: curl/nc",
+                "2. Verify DNS resolution: nslookup/dig",
+                "3. Check firewall/network policies allow connection",
+                "Optional: Increase timeout, check SSL certificates"
             ])
         
         elif category == ErrorCategory.IMPORT:
             actions.extend([
-                "2. Run: pip list to check installed packages",
-                "3. Run: pip install <package> to install missing module",
-                "4. Verify Python version compatibility",
-                "5. Check requirements.txt for version specifications"
+                "1. Install missing package: pip install <package>",
+                "2. Verify version compatibility in requirements.txt",
+                "3. Check Python version matches project requirement",
+                "Optional: Clear pip cache, upgrade pip"
             ])
         
         elif category == ErrorCategory.AUTHENTICATION:
             actions.extend([
-                "2. Verify API keys and tokens are valid",
-                "3. Check token expiration time",
-                "4. Refresh or regenerate credentials if needed",
-                "5. Review authentication logs for failed attempts"
+                "1. Validate API key/token has not expired",
+                "2. Verify credentials are correctly set in environment",
+                "3. Regenerate/refresh token if needed",
+                "Optional: Check auth service logs for rejections"
             ])
         
         elif category == ErrorCategory.RESOURCE:
             actions.extend([
-                "2. Check system resource usage (memory, disk, CPU)",
-                "3. Identify resource-consuming processes",
-                "4. Scale up resources or optimize application",
-                "5. Set up resource alerts and limits"
+                "1. Check available disk space: df -h",
+                "2. Check available memory: free -m",
+                "3. Check file descriptor limits: ulimit -a",
+                "Optional: Scale resources, optimize code, restart service"
+            ])
+        
+        elif category == ErrorCategory.PERMISSION:
+            actions.extend([
+                "1. Check file/directory permissions: ls -l <path>",
+                "2. Fix permissions if needed: chmod 644 <file>",
+                "3. Verify process owner matches file owner: chown",
+                "Optional: Check SELinux/AppArmor policies"
+            ])
+        
+        elif category == ErrorCategory.API:
+            actions.extend([
+                "1. Check API endpoint status and response codes",
+                "2. Verify API rate limits are not exceeded",
+                "3. Check if upstream service is available",
+                "Optional: Implement exponential backoff, retry logic"
+            ])
+        
+        else:
+            actions.extend([
+                "1. Review error message for specific clues",
+                "2. Check application logs for more context",
+                "3. Verify all service dependencies are running",
+                "Optional: Search logs for related errors"
             ])
         
         # Add escalation if critical
         if severity == "CRITICAL":
-            actions.append(f"\n🚨 CRITICAL INCIDENT: Notify on-call engineer immediately")
+            actions.append("CRITICAL INCIDENT: Notify on-call engineer immediately")
         
         return actions

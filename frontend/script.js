@@ -95,12 +95,20 @@ function setDemoIncident(index = 0) {
 }
 
 function updateResultUI(data) {
+    const occurrenceCount = Number.isFinite(data.occurrence_count) ? data.occurrence_count : null;
+    const memoryHits = Number.isFinite(data.memory_hits) ? data.memory_hits : (data.incident_summary?.memory_hits ?? 0);
+    const classificationStatus = data.incident_summary?.status || (occurrenceCount && occurrenceCount > 1 ? 'known-incident' : 'new-incident');
+    const isKnownIncident = (typeof data.seen_before === 'boolean')
+        ? data.seen_before
+        : (occurrenceCount ? occurrenceCount > 1 : data.memory_used);
+    const confidencePercent = Number.isFinite(data.confidence) ? data.confidence : 0;
+
     document.getElementById('suggestedFix').textContent = data.solution;
-    document.getElementById('classificationText').textContent = data.incident_summary.status;
-    document.getElementById('memoryHitsText').textContent = data.incident_summary.memory_hits;
+    document.getElementById('classificationText').textContent = classificationStatus;
+    document.getElementById('memoryHitsText').textContent = memoryHits;
     document.getElementById('resolutionModeText').textContent = data.memory_used ? 'Memory-guided' : 'First-response';
-    document.getElementById('signalMode').textContent = data.memory_used ? 'Known incident' : 'New incident';
-    document.getElementById('signalConfidence').textContent = `${data.confidence || 0}%`;
+    document.getElementById('signalMode').textContent = isKnownIncident ? 'Known incident' : 'New incident';
+    document.getElementById('signalConfidence').textContent = `${confidencePercent}%`;
     document.getElementById('heroMemoryStatus').textContent = data.memory_used
         ? 'Memory found a similar incident'
         : 'This incident is building fresh memory';
@@ -123,14 +131,14 @@ function updateResultUI(data) {
     pastReference.classList.add('hidden');
 
     if (data.memory_used) {
-        memoryBadge.textContent = 'Hindsight Memory Used';
+        memoryBadge.textContent = '✅ Hindsight Memory Used';
         memoryBadge.className = 'badge used';
 
-        confidenceBadge.textContent = `Confidence ${data.confidence}%`;
+        confidenceBadge.textContent = `📊 Confidence ${confidencePercent}%`;
         confidenceBadge.className = 'badge info';
         confidenceBadge.classList.remove('hidden');
 
-        seenBadge.textContent = `Seen Before ${data.seen_before_count}x`;
+        seenBadge.textContent = `🔄 Seen ${occurrenceCount ?? (memoryHits + 1)}x`;
         seenBadge.className = 'badge info';
         seenBadge.classList.remove('hidden');
 
@@ -139,8 +147,20 @@ function updateResultUI(data) {
         document.getElementById('refSolution').textContent = data.past_reference.solution;
         document.getElementById('refTimestamp').textContent = new Date(data.past_reference.timestamp).toLocaleString();
     } else {
-        memoryBadge.textContent = 'New Issue Logged';
+        // Backend guarantees: repeated incidents imply memory_used=true.
+        // If we ever land here with isKnownIncident, still avoid the contradictory label.
+        memoryBadge.textContent = isKnownIncident ? '🔁 Known Incident (memory reused)' : '🆕 Fresh Analysis';
         memoryBadge.className = 'badge new';
+
+        confidenceBadge.textContent = `📊 Confidence ${confidencePercent}%`;
+        confidenceBadge.className = 'badge info';
+        confidenceBadge.classList.remove('hidden');
+
+        if (occurrenceCount) {
+            seenBadge.textContent = `🔄 Seen ${occurrenceCount}x`;
+            seenBadge.className = 'badge info';
+            seenBadge.classList.remove('hidden');
+        }
     }
 
 
