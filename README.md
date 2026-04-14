@@ -1,9 +1,12 @@
-# 🚀 Incident Memory Copilot
+🚀 Incident Memory Copilot
 
-🔗 **Live Demo:** https://ai-incident-fix-engine.onrender.com
-📝 **Technical Deep Dive (Article):** https://medium.com/p/e8971ecf0730?postPublishedType=initial
+🔗 Live Demo: https://ai-incident-fix-engine.onrender.com
 
----
+📝 Technical Deep Dive (Article 1): https://medium.com/p/e8971ecf0730?postPublishedType=initial
+
+📝 Technical Deep Dive (Article 2): https://medium.com/p/94cc7dcde4b3?postPublishedType=initial
+
+📝 Technical Deep Dive (Article 3): https://medium.com/@muhammedafzal1000/i-built-an-ai-that-stops-repeating-debugging-mistakes-075e280c768a
 
 ## 🧠 Overview
 
